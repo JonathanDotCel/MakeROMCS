@@ -1,0 +1,1 @@
+Open README.md in notepad.

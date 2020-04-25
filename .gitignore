@@ -1,0 +1,29 @@
+#VS stuff
+obj
+.idea
+.vs
+Debug
+/bin/Debug/
+
+
+#input output
+*.rom
+*.dat
+
+#test stuff
+*.rar
+*.zip
+
+# ROM folders for testing + release
+*.bat
+x_roms*
+c_roms*
+o_roms
+t_roms*
+unsorted
+test_roms
+romfile.exe
+_backup
+
+
+
