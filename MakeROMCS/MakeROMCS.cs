@@ -361,9 +361,8 @@ namespace MakeROMCS {
 				// whole sequence matched!
 				return i;
 
-				// TODO: why do c# gotos require a sacrificial var?
-				noMatch:
-				int x = 0;
+				// THE SACRIFAICE HAS BEEN MADE
+				noMatch:;				
 
 			}
 
@@ -378,14 +377,14 @@ namespace MakeROMCS {
 			if ( offset == -1 ){
 				
 				#if DEBUG_ARGS
-				Console.Write( "    No release info found!" );
+				Console.Write( "    No release info found!\n" );
 				#endif
 				return inDefault;
 
 			}
 
 			#if DEBUG_ARGS
-			Console.Write( "    Release info found at: 0x" + offset.ToString("X8") );
+			Console.Write( "    Release info found at: 0x" + offset.ToString("X8") + "\n" );
 			#endif
 
 			// really good way to waste RAM but the program
@@ -397,7 +396,7 @@ namespace MakeROMCS {
 
 			char languageByte = (char)inBytes[ offset + 33 ];
 			#if DEBUG_ARGS
-			Console.Write( "    Language byte: \"" + languageByte + "\"" );
+			Console.Write( "    Language byte: \"" + languageByte + "\"\n" );
 			#endif
 
 			// only seen Dutch, German, Spanish, English(EU/UK), Japanese, USA
@@ -414,7 +413,7 @@ namespace MakeROMCS {
 			}
 
 			#if DEBUG_ARGS
-			Console.Write( "    Release Info: " + returnString );
+			Console.Write( "    Release Info: " + returnString + "\n" );
 			#endif
 
 			return returnString;
@@ -599,6 +598,7 @@ namespace MakeROMCS {
 			Console.Write( "    github.io/JonathanDotCel\n" );
 			Console.Write( "    \n" );
 			Console.Write( "    Many thanks to SquareSoft74 for testing & suggestions!\n" );
+			Console.Write( "    And \"Spenser\" lol!\n" );
 			Console.Write( "    \n" );
 			Console.Write( "================================================================================\n" );
 			Console.Write( "\n" );
