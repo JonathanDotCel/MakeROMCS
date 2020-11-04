@@ -69,7 +69,7 @@ namespace MakeROMCS {
 		
 		// All nice n uppercase for CDXA(Mode 2)
 		const string DEFAULT_FILENAME = "ROMFILE.DAT";
-		const string VERSION = "0.4";
+		const string VERSION = "0.5";
 
 		const int FILENAME_LIMIT = 45;
 		const int HEADER_SIZE = 0x2000;
