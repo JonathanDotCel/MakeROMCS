@@ -83,7 +83,10 @@ namespace MakeROMCS {
 
 		static List<string> romFileNames;
 		static List<ROMEntry> roms;
-		
+
+
+
+
 		static bool VerifyArgs( string[] inArgs ){
 			
 			// Linq <3
@@ -245,51 +248,33 @@ namespace MakeROMCS {
 					continue;
 				}
 
-				UInt32 checkSum = 0;
-				for( int b = 0x84; b < 0xB0; b++ ){
-					checkSum += romData[b];
-				}
-
-				#if DEBUG_ARGS
-				Console.WriteLine( "    License checksum is 0x" + checkSum.ToString("X4") );
-				#endif
-
-				if ( checkSum != 0x1040 ){
-					PrintWarning( "Invalid license data! " + romFileNames[i] );
-					PrintWarning( "(file will be skipped!" );
-					continue;
-				}
-
 				UInt32 paddedLength = (uint)romData.Length;
-				if ( romData.Length % SECTOR_SIZE > 0 ){
-					paddedLength += SECTOR_SIZE - ( paddedLength % SECTOR_SIZE );
+				if (romData.Length % SECTOR_SIZE > 0){
+					paddedLength += SECTOR_SIZE - (paddedLength % SECTOR_SIZE);
+					Console.WriteLine("padding size from " + romData.Length.ToString("X") + " to " + paddedLength.ToString("X"));
 				}
 
-				byte[] paddedData = new byte[ paddedLength ];
+				UInt32 licenseChecksum = 0;				
+				UInt32 romChecksum = 0;				
+				for( int b = 0; b < romData.Length; b++ ){
+					if ( b >= 0x84 && b < 0xB0 ) licenseChecksum += romData[b];
+					romChecksum += romData[b];;
+				}
 
-				Console.Write( 
-					"    Padded size from 0x" + romData.Length.ToString("X8") + " to 0x" + paddedLength.ToString("X8") + "\n"
-				);
-
-				// seems sound enough, let's checksum the whole thing
-				// while copying into a 2kb boundary aligned array for the CD
-				checkSum = 0;
-				for( int b = 0; b < paddedData.Length; b++ ){
-					
-					if ( b < romData.Length ){
-						checkSum += romData[b];
-						paddedData[b] = romData[b];
-					} else {
-						// just to emphasize
-						paddedData[b] = 0;
-					}
-					
+				bool normalByteOrder = (licenseChecksum == 0x1040);
+				bool reverseByteOrder = (licenseChecksum == 0x1498);
+				
+				if ( normalByteOrder || reverseByteOrder  ){					
+					Console.WriteLine( "Checksum " + licenseChecksum.ToString("X") + " reversed?=" + reverseByteOrder );
+				} else {
+					PrintWarning( "Could not find the license string!" );
+					continue;
 				}
 
 				
 
 				#if DEBUG_ARGS
-				Console.WriteLine( "    File checksum is 0x" + checkSum.ToString("X8") );
+				Console.WriteLine( "    File checksum is 0x" + licenseChecksum.ToString("X8") );
 				#endif
 
 				// So not portable,but look how neat it is.
@@ -298,7 +283,7 @@ namespace MakeROMCS {
 				fileName = fileName.Substring( 0, Math.Min( FILENAME_LIMIT, fileName.Length ) );
 
 
-				string internalName = GetInternalName( fileName, romData );
+				string internalName = GetInternalName( fileName, romData, reverseByteOrder );
 				internalName = internalName.Substring( 0, Math.Min( FILENAME_LIMIT, internalName.Length ) );
 
 				// not a fan of this setup as it makes searching for ".fileName" a little 
@@ -307,10 +292,10 @@ namespace MakeROMCS {
 					
 					actualLength = (UInt32)romData.Length,
 					offset = romOffset,  // haven't sorted the list so we don't know this yet
-					checkSum = checkSum,
+					checkSum = romChecksum,
 
-					paddedData = paddedData,
-					paddedLength = (UInt32)paddedData.Length,
+					paddedData = romData,
+					paddedLength = paddedLength,
 					
 					fileName = fileName,
 					internalName = internalName
@@ -345,12 +330,15 @@ namespace MakeROMCS {
 		}
 		
 		// should be UInts, but C# array access is signed, so it doesn't rightly matter.
-		static int FindSequence( string inString, byte[] inBytes ){
+		static int FindSequence( string inString, byte[] inBytes, bool reversedByteOrder ){
 			
 			for( int i = 0; i < inBytes.Length - inString.Length; i++ ){
 				
 				// heh gotta be future proof for those 4gb strings...
 				for( int j = 0; j < inString.Length; j++ ){
+
+					byte b = inBytes[ i + j ];
+					if ( reversedByteOrder ) b = Reverse( b );
 
 					if( inBytes[ i + j ] != inString[ j ] ) {
 						goto noMatch;
@@ -370,9 +358,9 @@ namespace MakeROMCS {
 
 		}
 		
-		static string GetInternalName( string inDefault, byte[] inBytes ){
+		static string GetInternalName( string inDefault, byte[] inBytes, bool reversedByteOrder ){
 			
-			int offset = FindSequence( "release", inBytes );
+			int offset = FindSequence( "release", inBytes, reversedByteOrder );
 
 			if ( offset == -1 ){
 				
@@ -391,10 +379,13 @@ namespace MakeROMCS {
 			// won't even be open long enough for the GC
 			string returnString = "";
 			for( int i = 0; i < 32; i++ ){
-				returnString += (char)inBytes[ offset + i ];
+				char rb = (char)inBytes[ offset + i ];
+				if ( reversedByteOrder ) rb = (char)Reverse( (byte)rb );
+				returnString += rb;
 			}
 
 			char languageByte = (char)inBytes[ offset + 33 ];
+			if ( reversedByteOrder ) languageByte = (char)Reverse( (byte)languageByte );
 			#if DEBUG_ARGS
 			Console.Write( "    Language byte: \"" + languageByte + "\"\n" );
 			#endif
@@ -471,7 +462,11 @@ namespace MakeROMCS {
 				dataOffset = rom.offset;
 				// and write the file
 				for( int b = 0; b < rom.paddedLength; b++ ){
-					writeBytes[ dataOffset + b ] = rom.paddedData[b];
+					if ( b < rom.actualLength ){
+						writeBytes[ dataOffset + b ] = rom.paddedData[b];
+					} else {
+						// could write zero, but c# inits to 0 anyway
+					}
 				}
 
 			}
@@ -614,6 +609,19 @@ namespace MakeROMCS {
 			Console.Write( "\n" );
 			Console.Write( " Packages up all the .ROM files in the current directory!\n" );
 			Console.Write( "\n" );
+
+		}
+
+		static byte Reverse(byte b)
+		{
+
+			int a = 0;
+			for (int i = 0; i < 8; i++)
+			{
+				if ((b & (1 << i)) != 0)
+					a |= 1 << (7 - i);
+			}
+			return (byte)a;
 
 		}
 
